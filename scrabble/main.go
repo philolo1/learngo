@@ -1,4 +1,4 @@
-package scrabble
+package main
 
 import "fmt"
 import "strings"

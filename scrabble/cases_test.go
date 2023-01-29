@@ -1,4 +1,4 @@
-package scrabble
+package main
 import "testing"
 import "fmt"
 // This is an auto-generated file. Do not change it manually. Run the generator to update the file.
