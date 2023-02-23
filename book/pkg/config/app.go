@@ -3,8 +3,8 @@ package config
 import (
   "github.com/jinzhu/gorm"
   _ "github.com/jinzhu/gorm/dialects/mysql"
+  "github.com/philolo1/book/pkg/env"
   "fmt"
-  "os"
 )
 
 var (
@@ -12,7 +12,7 @@ var (
 )
 
 func Connect() {
-  d, err := gorm.Open("mysql", os.Getenv("DATABASE_CONNECTION_STRING"))
+  d, err := gorm.Open("mysql", env.GetEnv().DatabaseConnectionString)
   if err != nil {
     panic(err)
   }

@@ -6,16 +6,12 @@ import (
   "github.com/gorilla/mux"
   _ "github.com/jinzhu/gorm/dialects/mysql"
   "github.com/philolo1/book/pkg/routes"
-  "github.com/joho/godotenv"
   "github.com/philolo1/book/pkg/models"
-  "os"
+  "github.com/philolo1/book/pkg/env"
 )
 
 func main() {
-  if err := godotenv.Load(); err != nil {
-    panic("Error loading .env file")
-  }
-  fmt.Printf("Values: %v", os.Getenv("DATABASE_CONNECTION_STRING"))
+  fmt.Printf("Env: %s\n", env.GetEnv())
   models.InitializeDB()
   r := mux.NewRouter()
   routes.RegisterBookStoreRoutes(r)
