@@ -75,11 +75,8 @@ func DeleteBookById(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateBook(w http.ResponseWriter, r *http.Request) {
-  // TODO add variables later
-  // vars := mux.Vars(r)
   var book models.Book
   json.NewDecoder(r.Body).Decode(&book)
-  fmt.Printf("vars %v\n", book)
   newBook := book
   models.CreateBook(&newBook)
   w.Header().Set("Content-Type", "application/json")

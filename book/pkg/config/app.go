@@ -55,6 +55,10 @@ func Connect() {
   printTime()
 }
 
+func GetRedis() *redis.Client {
+  return rdb
+}
+
 func GetDB() *gorm.DB {
   return db
 }
