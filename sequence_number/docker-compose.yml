@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis
+    command: >
+      --requirepass redispassword
+    ports:
+      - "6379:6379"
+
+  kafka:
+    image: wurstmeister/kafka
+    tty: true
+    ports:
+      - 9093:9093
+    environment:
+      # kafka client
+      KAFKA_ZOOKEEPER_CONNECT: zk:2181
+      KAFKA_LISTENERS: "INTERNAL://0.0.0.0:9092,OUTSIDE://0.0.0.0:9093"
+      KAFKA_ADVERTISED_LISTENERS: "INTERNAL://kafka:9092,OUTSIDE://localhost:9093"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "INTERNAL:PLAINTEXT,OUTSIDE:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CREATE_TOPICS: "trades:1:1"
+    # healthcheck to myself
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --list --zookeeper zk:2181"]
+      interval: 10s
+      retries: 5
+      timeout: 10s
+    depends_on:
+      zk:
+        condition: service_healthy
+
+  # zookeeper
+  zk:
+    image: zookeeper:latest
+    ports:
+      - 2181
+    # healthcheck to myself
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc -vz localhost 2181 || exit -1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  redpanda:
+    image: docker.redpanda.com/vectorized/console:latest
+    ports:
+      - 9000:8080
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_MESSAGEPACK_ENABLED=true
+    depends_on:
+      zk:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
