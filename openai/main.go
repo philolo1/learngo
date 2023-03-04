@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"log"
-	"github.com/joho/godotenv"
 )
 
 type Request struct {
@@ -33,10 +32,15 @@ type Choice struct {
 
 func main() {
 	// Load environment variables from .env file
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	if os.Getenv("OPENAI_TOKEN") == "" {
+		log.Fatal("OPENAI_TOKEN needs to be set")
 	}
+
+  instructions := "You are an AI that answers with code snippets in go. "
+
+  if os.Getenv("OPENAI_INSTRUCTIONS") == "" {
+    instructions = os.Getenv("OPENAI_INSTRUCTIONS")
+  }
 
   args := os.Args
   var question string
@@ -57,7 +61,7 @@ func main() {
 		Messages: []Message{
 			{
 				Role:    "system",
-				Content: "You are an AI that answers with code snippets in go and explains them.",
+				Content: instructions,
 			},
 			{
 				Role:    "user",
@@ -73,7 +77,7 @@ func main() {
 		log.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+os.Getenv("TOKEN"))
+	req.Header.Set("Authorization", "Bearer "+os.Getenv("OPENAI_TOKEN"))
 
 	// Send HTTP request
   log.Printf("Sending request...")
