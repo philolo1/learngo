@@ -38,7 +38,7 @@ func main() {
 
   instructions := "You are an AI that answers with code snippets in go. "
 
-  if os.Getenv("OPENAI_INSTRUCTIONS") == "" {
+  if os.Getenv("OPENAI_INSTRUCTIONS") != "" {
     instructions = os.Getenv("OPENAI_INSTRUCTIONS")
   }
 
