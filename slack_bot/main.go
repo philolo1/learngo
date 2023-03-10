@@ -66,7 +66,7 @@ func translate(message string) string {
           Role:    openai.ChatMessageRoleAssistant,
 					Content: "こんにちは",
         },
-        	{
+        {
 					Role:    openai.ChatMessageRoleUser,
 					Content: message,
 				},
