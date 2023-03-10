@@ -1,109 +1,169 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	// "time"
   "log"
+  "context"
 
 	"github.com/joho/godotenv"
-	"github.com/slack-go/slack"
+  "github.com/slack-go/slack"
+	"github.com/slack-go/slack/slackevents"
+  "net/http"
+  "bytes"
+   "encoding/json"
+	openai "github.com/sashabaranov/go-openai"
 )
 
 type Env struct {
-  token string
+  slackToken string
   channelID string
+  openaiApiKey string
 }
 
 func (env* Env) InitEnv() {
 	// Load Env variables from .dot file
 	godotenv.Load(".env")
 
-	env.token = os.Getenv("SLACK_AUTH_TOKEN")
+	env.slackToken = os.Getenv("SLACK_AUTH_TOKEN")
 	env.channelID = os.Getenv("SLACK_CHANNEL_ID")
+	env.openaiApiKey = os.Getenv("OPENAI_API_KEY")
 }
+
+var (
+    ErrorLog   *log.Logger
+    InfoLog   *log.Logger
+    aiClient *openai.Client
+    slackClient *slack.Client
+    env Env
+)
+
+func init() {
+  env.InitEnv()
+  ErrorLog = log.New(os.Stdout, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+  InfoLog = log.New(os.Stdout, "[INFO] ", 0)
+  aiClient = openai.NewClient(env.openaiApiKey)
+}
+
+
+
+
+func translate(message string) string {
+	resp, err := aiClient.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model: openai.GPT3Dot5Turbo,
+			Messages: []openai.ChatCompletionMessage{
+        {
+          Role: openai.ChatMessageRoleSystem,
+          Content: "You are a translator who translates from Japanese to English and the other way around. You only answer with the translation. You do not include pronounciation.",
+        },
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: "Hello",
+				},
+        {
+          Role:    openai.ChatMessageRoleAssistant,
+					Content: "こんにちは",
+        },
+        	{
+					Role:    openai.ChatMessageRoleUser,
+					Content: message,
+				},
+
+			},
+		},
+	)
+
+  if err != nil {
+    ErrorLog.Printf("Could not translate %v", err)
+    return ""
+  }
+
+  InfoLog.Printf("Translate %v\n", resp.Choices[0].Message.Content)
+
+	return resp.Choices[0].Message.Content
+}
+
+func sendMessage(channelID string, message string, threadTimestamp string) error {
+  params := slack.PostMessageParameters{
+    ThreadTimestamp: threadTimestamp,
+  }
+
+  resultMessage := translate(message)
+
+  _, _, err := slackClient.PostMessage(channelID, slack.MsgOptionText(resultMessage, false), slack.MsgOptionPostMessageParameters(params))
+  if err != nil {
+    return err
+  }
+  return nil
+}
+
 
 func main() {
 
-  env := Env{}
-  env.InitEnv()
+  ErrorLog.Println("Error")
 
-  log.Printf("%v", env)
+  // log.Printf("%v", env)
+  slackClient = slack.New(env.slackToken, slack.OptionDebug(true))
 
-	client := slack.New(env.token, slack.OptionDebug(true))
-	// Create the Slack attachment that we will send to the channel
-	/*attachment := slack.Attachment{
-		Pretext: "Super Bot Message",
-		Text:    "some text",
-		// Color Styles the Text, making it possible to have like Warnings etc.
-		Color: "#36a64f",
-		// Fields are Optional extra data!
-		Fields: []slack.AttachmentField{
-			{
-				Title: "Date",
-				Value: time.Now().String(),
-			},
-		},
-	}
-  */
-	// PostMessage will send the message away.
-	// First parameter is just the channelID, makes no sense to accept it
-	_, timestamp, err := client.PostMessage(
-		env.channelID,
-		// uncomment the item below to add a extra Header to the message, try it out :)
-		//slack.MsgOptionText("New message from bot", false),
-    slack.MsgOptionBlocks(
-      // テキストのみのセクションブロック
-      &slack.SectionBlock{
-        Type: slack.MBTSection,
-        Text: &slack.TextBlockObject{
-          Type: "mrkdwn",
-          Text: "Hello, Assistant to the Regional Manager Dwight! *Michael Scott* wants to know where you'd like to take the Paper Company investors to dinner tonight.\n\n *Please select a restaurant:*",
-        },
-      },
+  if (slackClient != nil) {
+    log.Println("Start")
+    log.Println("Start")
+  }
 
-      // 区切り線
-      slack.NewDividerBlock(),
+	http.HandleFunc("/slack/events", func(w http.ResponseWriter, r *http.Request) {
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(r.Body)
+		body := buf.String()
 
-      // アクセサリつきのセクションブロック
-      &slack.SectionBlock{
-        Type: slack.MBTSection,
-        Text: &slack.TextBlockObject{
-          Type: "mrkdwn",
-          Text: "*Farmhouse Thai Cuisine*\n:star::star::star::star: 1528 reviews\n They do have some vegan options, like the roti and curry, plus they have a ton of salad stuff and noodles can be ordered without meat!! They have something for everyone here",
-        },
-        Accessory: slack.NewAccessory(
-          slack.NewImageBlockElement("https://s3-media2.fl.yelpcdn.com/bphoto/korel-1YjNtFtJlMTaC26A/o.jpg", "alt text for image"),
-        ),
-      },
+		event, err := slackevents.ParseEvent(json.RawMessage(body), slackevents.OptionNoVerifyToken())
+		if err != nil {
+			log.Printf("Error parsing event: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 
-      // ボタン
-      &slack.ActionBlock{
-        Type: slack.MBTAction,
-        Elements: &slack.BlockElements{
-          ElementSet: []slack.BlockElement{
-            &slack.ButtonBlockElement{
-              Type:  slack.METButton,
-              Style: slack.StylePrimary,
-              Text:  &slack.TextBlockObject{Type: "plain_text", Text: "Yes", Emoji: true},
-              Value: "click_me_123",
-              URL:   "https://google.com",
-            },
-            &slack.ButtonBlockElement{
-              Type:  slack.METButton,
-              Style: slack.StyleDanger,
-              Text:  &slack.TextBlockObject{Type: "plain_text", Text: "No", Emoji: true},
-              Value: "click_me_123",
-              URL:   "https://google.com",
-            },
-          },
-        },
-      },
-    ),
-	)
 
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Message sent at %s", timestamp)
+		switch event.Type {
+		case slackevents.URLVerification:
+			var challengeResponse slackevents.ChallengeResponse
+			err = json.Unmarshal([]byte(body), &challengeResponse)
+			if err != nil {
+				log.Printf("Error unmarshalling URL verification response: %s", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "text")
+			w.Write([]byte(challengeResponse.Challenge))
+
+		case slackevents.CallbackEvent:
+			// handle the incoming event
+
+      msgEvt := event.InnerEvent.Data.(*slackevents.MessageEvent)
+
+      log.Printf("Event %v\n", msgEvt)
+
+      if msgEvt.Type == "message"  {
+        // process the message
+        text := msgEvt.Text
+        log.Printf("text %v", text)
+
+        if len(msgEvt.ThreadTimeStamp) == 0 {
+          slackClient.AddReaction("thumbsup", slack.NewRefToMessage(
+            msgEvt.Channel,
+            msgEvt.EventTimeStamp,
+          ))
+          log.Printf("time %v", msgEvt.EventTimeStamp)
+
+          go sendMessage(msgEvt.Channel, text, msgEvt.EventTimeStamp)
+        }
+      }
+		default:
+			// ignore unrecognized events
+		}
+	})
+
+	InfoLog.Println("Listening for events on /slack/events:3000")
+	http.ListenAndServe(":3000", nil)
+
 }
