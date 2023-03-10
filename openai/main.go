@@ -47,6 +47,9 @@ func main() {
   if len(args) == 2 {
     fmt.Println("The first argument is:", args[1])
     question = args[1]
+  } else if len(args) == 3 {
+    instructions = args[1]
+    question = args[2]
   } else {
     log.Panic("Need to set question in first parameter")
   }
