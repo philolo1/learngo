@@ -3,6 +3,7 @@ package main
 import (
   "fmt"
   "log"
+  "os"
   "net/http"
 	"encoding/json"
 )
@@ -51,8 +52,13 @@ func main() {
   http.HandleFunc("/hello", helloHandler)
   http.HandleFunc("/form", formHandler)
 
-  fmt.Printf(" Starting server at port 8080\n")
-  if err:= http.ListenAndServe(":8080", nil); err != nil {
-    log.Fatal(err)
-  }
+  port := os.Getenv("PORT")
+	if port == "" {
+    log.Panicf("PORT Variable not set")
+	}
+
+	fmt.Printf("Starting server at port %s\n", port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		log.Fatal(err)
+	}
 }
